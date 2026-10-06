@@ -53,7 +53,7 @@ A word that keeps flipping between two levels means the value sits right on a bo
 
 **The first day or two is less accurate.** A new ENS160 adjusts its baseline over roughly its first 24 hours of running. Expect the air words to be a level or so off at first, often too pessimistic. Leave it running.
 
-**The temperature reads 2 to 3 °C high.** The gas sensor's heater warms the small board it shares with the temperature sensor. Humidity reads a bit low for the same reason. See [Correcting the temperature](#correcting-the-temperature) to fix it.
+**The raw temperature reads about 4 °C high.** The gas sensor's heater warms the small board it shares with the temperature sensor, which also makes humidity read low. `main.py` corrects both. See [Correcting the temperature](#correcting-the-temperature).
 
 **Placement matters.** Keep the station away from direct sun, radiators, your laptop's exhaust and your face. Breathing on it sends TVOC and eCO2 up for a minute.
 
@@ -137,13 +137,15 @@ Each number is where the next level begins: Good, Moderate, Poor, Unhealthy. For
 
 ### Correcting the temperature
 
-Compare the station with a thermometer you trust after it has run for an hour. If it reads 2.5 °C high, add this line in `read_sensors()`, straight after `r["temp"], r["rh"] = aht.read()`:
+The station applies a fixed temperature offset, set near the top of `main.py`:
 
 ```python
-r["temp"] -= 2.5
+TEMP_OFFSET_C = -4.1
 ```
 
-The corrected temperature is also what goes to the ENS160 as compensation.
+It was calibrated on 2026-10-06, when the station read 25.1 °C and a multimeter read 21.0 °C. To recalibrate, set it to `0`, let the station run for an hour, compare it with a thermometer you trust, and set the offset to (thermometer − station).
+
+Humidity is corrected automatically to match. The sensor's air holds the same amount of water as the room's, but it's warmer, so its relative humidity reads low. `correct_temp_rh()` converts it back to room temperature. The corrected values are also what goes to the ENS160 as compensation.
 
 ### Screen layout
 
