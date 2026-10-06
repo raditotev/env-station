@@ -44,14 +44,30 @@ class ENS160:
         if part_id != 0x0160:
             raise OSError("ENS160 not found (part id 0x%04x)" % part_id)
 
-        # Go through IDLE to STANDARD (gas sensing) mode. Changing mode restarts
-        # the ~3 minute warm-up, so skip it if the sensor is already measuring
-        # (e.g. after a Pico reset while the sensor stayed powered).
-        if self._read(REG_OPMODE, 1)[0] != MODE_STANDARD:
-            self._write(REG_OPMODE, bytes([MODE_IDLE]))
-            time.sleep_ms(10)
-            self._write(REG_OPMODE, bytes([MODE_STANDARD]))
-            time.sleep_ms(10)
+        # Changing mode restarts the ~3 minute warm-up, so only start the
+        # sensor if it isn't already measuring (e.g. after a Pico reset while
+        # the sensor stayed powered).
+        if self._read(REG_OPMODE, 1)[0] != MODE_STANDARD or not self.running():
+            self.start()
+
+    def start(self):
+        """Go through IDLE to STANDARD (gas sensing) mode.
+
+        The sensor needs about 1 second before running() turns True, then
+        runs its ~3 minute warm-up.
+        """
+        self._write(REG_OPMODE, bytes([MODE_IDLE]))
+        time.sleep_ms(50)
+        self._write(REG_OPMODE, bytes([MODE_STANDARD]))
+        time.sleep_ms(50)
+
+    def running(self):
+        """True if the sensor is actually measuring (status bit 7, STATAS).
+
+        The mode register can say STANDARD while the sensor is stuck and not
+        measuring; in that state all data reads 0.
+        """
+        return bool(self.status() & 0x80)
 
     def _read(self, reg, n):
         return self.i2c.readfrom_mem(self.addr, reg, n)

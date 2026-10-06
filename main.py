@@ -17,7 +17,7 @@ import time
 from machine import I2C, Pin
 from ssd1306 import SSD1306_I2C
 from aht21 import AHT21
-from ens160 import ENS160, VALID_NORMAL, VALID_INVALID
+from ens160 import ENS160, VALID_NORMAL, VALID_WARMUP, VALID_INVALID
 
 # ---------------------------------------------------------------------------
 # Settings you might want to change
@@ -63,6 +63,11 @@ oled = None
 aht = None
 ens = None
 
+# How many reads in a row the ENS160 may report "not measuring" before we
+# restart it. It needs about 1 second to start after a restart.
+ENS_STALL_READS = 3
+ens_stalled = 0
+
 
 def setup_devices():
     """Create any device object that isn't working yet."""
@@ -103,7 +108,7 @@ def correct_temp_rh(temp_c, rh):
 
 def read_sensors():
     """Read both sensors. Returns a dict; a value is None if that read failed."""
-    global aht, ens
+    global aht, ens, ens_stalled
     r = {"temp": None, "rh": None, "aqi": None, "tvoc": None, "eco2": None,
          "validity": None}
 
@@ -119,8 +124,21 @@ def read_sensors():
             # Only send compensation if we have a fresh temp/humidity reading
             if r["temp"] is not None:
                 ens.set_compensation(r["temp"], r["rh"])
-            r["validity"] = ens.validity()
             r["aqi"], r["tvoc"], r["eco2"] = ens.read()
+
+            if ens.running():
+                ens_stalled = 0
+                r["validity"] = ens.validity()
+            else:
+                # Not measuring: data is all zeros and the validity flag
+                # wrongly says OK. Show it as warming up, and if it doesn't
+                # start by itself within a few reads, restart it.
+                r["validity"] = VALID_WARMUP
+                ens_stalled += 1
+                if ens_stalled >= ENS_STALL_READS:
+                    print("ENS160 not measuring, restarting it")
+                    ens.start()
+                    ens_stalled = 0
         except OSError as e:
             print("ENS160 read error:", e)
             r["aqi"] = r["tvoc"] = r["eco2"] = r["validity"] = None
