@@ -26,15 +26,25 @@ The top line shows temperature in °C and relative humidity in %. Below the divi
 
 ### What the words mean
 
-The five levels come from the German Environment Agency (UBA) indoor air scale.
+Air and TVOC use the German Environment Agency (UBA) indoor air scale, with the TVOC steps converted to ppb as in the ENS160 datasheet.
 
-| Word | Air (AQI) | TVOC (ppb) | eCO2 (ppm) | What to do |
-|---|---|---|---|---|
-| Excellent | 1 | below 65 | below 600 | Nothing |
-| Good | 2 | 65 to 219 | 600 to 799 | Nothing |
-| Moderate | 3 | 220 to 659 | 800 to 999 | Open a window when it suits you |
-| Poor | 4 | 660 to 2199 | 1000 to 1499 | Ventilate soon |
-| Unhealthy | 5 | 2200 and up | 1500 and up | Ventilate now and look for the source |
+| Word | Air (AQI) | TVOC (ppb) | What to do |
+|---|---|---|---|
+| Excellent | 1 | below 65 | Nothing |
+| Good | 2 | 65 to 219 | Nothing |
+| Moderate | 3 | 220 to 659 | Open a window when it suits you |
+| Poor | 4 | 660 to 2199 | Ventilate soon |
+| Unhealthy | 5 | 2200 and up | Ventilate now and look for the source |
+
+eCO2 has its own words, based on UBA's CO2 guidance. CO2 at these levels makes a room stuffy and people drowsy, but it isn't toxic, so the scale tops out at Poor rather than Unhealthy.
+
+| Word | eCO2 (ppm) | What to do |
+|---|---|---|
+| Excellent | below 450 | Nothing, this is outdoor air |
+| Good | 450 to 799 | Nothing |
+| Acceptable | 800 to 999 | Nothing yet |
+| Stuffy | 1000 to 1999 | Open a window |
+| Poor | 2000 and up | Ventilate now |
 
 A word that keeps flipping between two levels means the value sits right on a boundary. That's normal and not a fault.
 
@@ -111,7 +121,7 @@ While you're watching with `mpremote`, Ctrl-C stops the program and gives you a 
 The serial console prints a line every 2 seconds with the actual numbers:
 
 ```
-T 25.2C  RH 36.3%  |  AQI 3 (Moderate)  TVOC 633 ppb (Moderate)  eCO2 905 ppm (Moderate)  |  OK
+T 25.2C  RH 36.3%  |  AQI 3 (Moderate)  TVOC 633 ppb (Moderate)  eCO2 905 ppm (Acceptable)  |  OK
 ```
 
 ## Customising
@@ -130,10 +140,10 @@ UPDATE_INTERVAL_S = 2       # seconds between readings
 
 ```python
 TVOC_LIMITS = (65, 220, 660, 2200)     # ppb
-ECO2_LIMITS = (600, 800, 1000, 1500)   # ppm
+ECO2_LIMITS = (450, 800, 1000, 2000)   # ppm
 ```
 
-Each number is where the next level begins: Good, Moderate, Poor, Unhealthy. For example, to make eCO2 count as Poor only from 1200 ppm, change `1000` to `1200`. The words themselves live in `LEVELS`.
+Each number is where the next word begins. For TVOC that's Good, Moderate, Poor, Unhealthy. For eCO2 it's Good, Acceptable, Stuffy, Poor. For example, to make eCO2 count as Stuffy only from 1200 ppm, change `1000` to `1200`. The words live in `TVOC_WORDS` and `ECO2_WORDS`.
 
 ### Correcting the temperature
 

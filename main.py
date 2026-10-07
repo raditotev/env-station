@@ -33,25 +33,30 @@ I2C_SDA = 4                 # GP4 (pin 6)
 I2C_SCL = 5                 # GP5 (pin 7)
 I2C_FREQ = 400_000
 
-# Air-quality values are shown as words instead of numbers, using the five
-# German Environment Agency (UBA) levels, best to worst:
-LEVELS = ("Excellent", "Good", "Moderate", "Poor", "Unhealthy")
+# Air-quality values are shown as words instead of numbers. Each reading has
+# its own five words, best to worst, and the four values where the next word
+# starts.
 
-# Where each level after "Excellent" starts (Good, Moderate, Poor, Unhealthy).
-# These are the bands from the ENS160 datasheet.
+# TVOC: German Environment Agency (UBA) indoor levels, converted from ug/m3
+# to ppb as in the ENS160 datasheet.
+TVOC_WORDS = ("Excellent", "Good", "Moderate", "Poor", "Unhealthy")
 TVOC_LIMITS = (65, 220, 660, 2200)     # ppb
-ECO2_LIMITS = (600, 800, 1000, 1500)   # ppm
+
+# eCO2: UBA CO2 guidance, where 1000 ppm calls for ventilation and 2000 ppm
+# is unacceptable. Outdoor air is about 420 ppm.
+ECO2_WORDS = ("Excellent", "Good", "Acceptable", "Stuffy", "Poor")
+ECO2_LIMITS = (450, 800, 1000, 2000)   # ppm
 
 # The ENS160's own AQI is already 1-5 on the UBA scale: 1 = Excellent.
-AQI_WORDS = {i + 1: name for i, name in enumerate(LEVELS)}
+AQI_WORDS = {i + 1: name for i, name in enumerate(TVOC_WORDS)}
 
 
-def level(value, limits):
-    """Turn a number into one of LEVELS using limits."""
+def level(value, limits, words):
+    """Turn a number into one of words using limits."""
     for i, limit in enumerate(limits):
         if value < limit:
-            return LEVELS[i]
-    return LEVELS[-1]
+            return words[i]
+    return words[-1]
 
 # ---------------------------------------------------------------------------
 # Devices
@@ -156,7 +161,7 @@ def read_sensors():
 #   y=10  ----------------     divider line
 #   y=16  Air     Moderate     overall (ENS160 AQI)
 #   y=28  TVOC        Good     chemicals / smells
-#   y=40  eCO2   Excellent     stuffiness (CO2 estimate)
+#   y=40  eCO2  Acceptable     stuffiness (CO2 estimate)
 #   y=56  [ WARMING UP... ]    inverted status bar, only when needed
 
 def text_right(s, y):
@@ -194,8 +199,8 @@ def draw(r, tick):
         words = ("--", "--", "--")
     else:
         words = (AQI_WORDS.get(r["aqi"], "?"),
-                 level(r["tvoc"], TVOC_LIMITS),
-                 level(r["eco2"], ECO2_LIMITS))
+                 level(r["tvoc"], TVOC_LIMITS, TVOC_WORDS),
+                 level(r["eco2"], ECO2_LIMITS, ECO2_WORDS))
     text_right(words[0], 16)
     text_right(words[1], 28)
     text_right(words[2], 40)
@@ -234,8 +239,8 @@ def print_reading(r):
     else:
         air = "AQI %d (%s)  TVOC %d ppb (%s)  eCO2 %d ppm (%s)" % (
             r["aqi"], AQI_WORDS.get(r["aqi"], "?"),
-            r["tvoc"], level(r["tvoc"], TVOC_LIMITS),
-            r["eco2"], level(r["eco2"], ECO2_LIMITS))
+            r["tvoc"], level(r["tvoc"], TVOC_LIMITS, TVOC_WORDS),
+            r["eco2"], level(r["eco2"], ECO2_LIMITS, ECO2_WORDS))
     print("T %s  RH %s  |  %s  |  %s" % (
         fmt(r["temp"], "%.1fC"), fmt(r["rh"], "%.1f%%"), air, state))
 
