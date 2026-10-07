@@ -48,6 +48,10 @@ eCO2 has its own words, based on UBA's CO2 guidance. CO2 at these levels makes a
 
 A word that keeps flipping between two levels means the value sits right on a boundary. That's normal and not a fault.
 
+### The red light
+
+The big RGB LED on the board pulses red, fading up and down every 2 seconds, while Air reads Unhealthy (AQI 5). Ventilate and look for the source. It goes dark again as soon as Air drops to Poor or better. It never lights during warm-up or when a sensor shows `ERR`.
+
 ### Status bar messages
 
 | Message | Meaning |
@@ -160,6 +164,16 @@ To recalibrate, set both to `0`, let the station run for at least 10 minutes, co
 
 Humidity gets a plain offset. The station used to recalculate humidity for the cooler room, on the theory that the warm sensor reads it low. The calibration showed the humidity reading hardly moves with the board's warmth, so that recalculation put it about 8 points too high. The corrected values are also what goes to the ENS160 as compensation.
 
+### The red light
+
+```python
+LED_PIN = 23                # the board's WS2812 RGB LED
+LED_PULSE_MS = 2000         # one fade up and down
+LED_MAX = 120               # peak red brightness, 0-255
+```
+
+Lower `LED_MAX` if the pulse is too bright at night. To light it at Poor as well, change `r["aqi"] == 5` to `r["aqi"] >= 4` in `is_critical()`.
+
 ### Screen layout
 
 Everything on screen is drawn in `draw()`. A comment above it shows the pixel row of each line. Useful facts:
@@ -192,4 +206,4 @@ mpremote exec "from machine import I2C, Pin; print([hex(a) for a in I2C(0, sda=P
 
 You should see `['0x38', '0x3c', '0x53']`. A missing address points to a loose or crossed wire on that board.
 
-**The RGB LED on the Pico is lit.** That's left over from the factory demo program. It goes off the next time the board loses power, and it doesn't affect anything.
+**The RGB LED pulses red.** The air is Unhealthy. See [The red light](#the-red-light). If it's lit but not pulsing, `main.py` isn't running. Run `mpremote` and look for errors.

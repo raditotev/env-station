@@ -8,11 +8,15 @@
 #   3. reads AQI, TVOC and eCO2 from the ENS160
 #   4. draws everything on the OLED and prints a line to the serial console
 #
+# While the air is Unhealthy (AQI 5) the board's RGB LED pulses red.
+#
 # If a sensor (or the display) stops answering, its part of the screen shows
 # "ERR" and the program tries to set it up again on the next loop. It never
 # exits on a read error. Press Ctrl-C in mpremote to stop it.
 
+import math
 import time
+import neopixel
 from machine import I2C, Pin
 from ssd1306 import SSD1306_I2C
 from aht21 import AHT21
@@ -33,6 +37,10 @@ RH_OFFSET = 1.4             # percentage points
 I2C_SDA = 4                 # GP4 (pin 6)
 I2C_SCL = 5                 # GP5 (pin 7)
 I2C_FREQ = 400_000
+
+LED_PIN = 23                # the board's WS2812 RGB LED
+LED_PULSE_MS = 2000         # one fade up and down
+LED_MAX = 120               # peak red brightness, 0-255
 
 # Air-quality values are shown as words instead of numbers. Each reading has
 # its own five words, best to worst, and the four values where the next word
@@ -73,6 +81,9 @@ ens = None
 # restart it. It needs about 1 second to start after a restart.
 ENS_STALL_READS = 3
 ens_stalled = 0
+
+led = neopixel.NeoPixel(Pin(LED_PIN), 1)
+led_red = None              # last value written, so we only write on change
 
 
 def setup_devices():
@@ -211,6 +222,30 @@ def draw(r, tick):
 
 
 # ---------------------------------------------------------------------------
+# RGB LED
+# ---------------------------------------------------------------------------
+def is_critical(r):
+    """True when the ENS160 rates the air Unhealthy and isn't warming up."""
+    return r["aqi"] == 5 and r["validity"] == VALID_NORMAL
+
+
+def update_led(pulse):
+    """Set the LED for this moment: a red pulse, or off."""
+    global led_red
+    if pulse:
+        phase = time.ticks_ms() % LED_PULSE_MS / LED_PULSE_MS
+        fade = (1 - math.cos(2 * math.pi * phase)) / 2
+        # Squared, because the eye sees low brightness steps as big jumps
+        red = int(LED_MAX * fade * fade)
+    else:
+        red = 0
+    if red != led_red:
+        led[0] = (red, 0, 0)
+        led.write()
+        led_red = red
+
+
+# ---------------------------------------------------------------------------
 # Serial output
 # ---------------------------------------------------------------------------
 def fmt(value, spec):
@@ -245,9 +280,11 @@ print("Air-quality station starting")
 tick = 0
 while True:
     start = time.ticks_ms()
+    critical = False
     try:
         setup_devices()
         readings = read_sensors()
+        critical = is_critical(readings)
         print_reading(readings)
         if oled is not None:
             try:
@@ -261,6 +298,7 @@ while True:
         print("Unexpected error:", repr(e))
     tick += 1
 
-    # Sleep for whatever is left of the interval
-    elapsed = time.ticks_diff(time.ticks_ms(), start)
-    time.sleep_ms(max(0, UPDATE_INTERVAL_S * 1000 - elapsed))
+    # Wait out the rest of the interval, animating the LED meanwhile
+    while time.ticks_diff(time.ticks_ms(), start) < UPDATE_INTERVAL_S * 1000:
+        update_led(critical)
+        time.sleep_ms(20)
