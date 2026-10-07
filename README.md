@@ -5,7 +5,7 @@ A Raspberry Pi Pico-compatible board that measures temperature, humidity and ind
 ## Reading the screen
 
 ```
-25.2C      36%RH
+21.4C      49%RH
 ----------------
 Air     Moderate
 TVOC    Moderate
@@ -63,7 +63,7 @@ A word that keeps flipping between two levels means the value sits right on a bo
 
 **The first day or two is less accurate.** A new ENS160 adjusts its baseline over roughly its first 24 hours of running. Expect the air words to be a level or so off at first, often too pessimistic. Leave it running.
 
-**The raw temperature reads about 4 °C high.** The gas sensor's heater warms the small board it shares with the temperature sensor, which also makes humidity read low. `main.py` corrects both. See [Correcting the temperature](#correcting-the-temperature).
+**The raw temperature reads about 3 °C high.** The gas sensor's heater warms the small board it shares with the temperature sensor. `main.py` corrects for it, plus a small humidity offset. See [Correcting the temperature](#correcting-the-temperature).
 
 **Placement matters.** Keep the station away from direct sun, radiators, your laptop's exhaust and your face. Breathing on it sends TVOC and eCO2 up for a minute.
 
@@ -121,7 +121,7 @@ While you're watching with `mpremote`, Ctrl-C stops the program and gives you a 
 The serial console prints a line every 2 seconds with the actual numbers:
 
 ```
-T 25.2C  RH 36.3%  |  AQI 3 (Moderate)  TVOC 633 ppb (Moderate)  eCO2 905 ppm (Acceptable)  |  OK
+T 21.4C  RH 48.5%  |  AQI 3 (Moderate)  TVOC 633 ppb (Moderate)  eCO2 905 ppm (Acceptable)  |  OK
 ```
 
 ## Customising
@@ -147,15 +147,18 @@ Each number is where the next word begins. For TVOC that's Good, Moderate, Poor,
 
 ### Correcting the temperature
 
-The station applies a fixed temperature offset, set near the top of `main.py`:
+The station applies a fixed temperature offset and humidity offset, set near the top of `main.py`:
 
 ```python
-TEMP_OFFSET_C = -4.1
+TEMP_OFFSET_C = -2.9
+RH_OFFSET = 1.4             # percentage points
 ```
 
-It was calibrated on 2026-10-06, when the station read 25.1 °C and a multimeter read 21.0 °C. To recalibrate, set it to `0`, let the station run for an hour, compare it with a thermometer you trust, and set the offset to (thermometer − station).
+They were calibrated on 2026-10-07 against a second AHT21 placed away from the sensor board. Once both had settled, the board read 23.9 °C / 47.3 % and the reference 21.1 °C / 48.7 %. With the offsets applied, the two agreed within 0.3 °C and 1 % over a 3-minute check. That was at about 21 °C, so in a much warmer or colder room the offset may drift a few tenths.
 
-Humidity is corrected automatically to match. The sensor's air holds the same amount of water as the room's, but it's warmer, so its relative humidity reads low. `correct_temp_rh()` converts it back to room temperature. The corrected values are also what goes to the ENS160 as compensation.
+To recalibrate, set both to `0`, let the station run for at least 10 minutes, compare it with a thermometer and hygrometer you trust, and set each offset to (reference − station).
+
+Humidity gets a plain offset. The station used to recalculate humidity for the cooler room, on the theory that the warm sensor reads it low. The calibration showed the humidity reading hardly moves with the board's warmth, so that recalculation put it about 8 points too high. The corrected values are also what goes to the ENS160 as compensation.
 
 ### Screen layout
 

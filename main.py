@@ -12,7 +12,6 @@
 # "ERR" and the program tries to set it up again on the next loop. It never
 # exits on a read error. Press Ctrl-C in mpremote to stop it.
 
-import math
 import time
 from machine import I2C, Pin
 from ssd1306 import SSD1306_I2C
@@ -25,9 +24,11 @@ from ens160 import ENS160, VALID_NORMAL, VALID_WARMUP, VALID_INVALID
 UPDATE_INTERVAL_S = 2       # seconds between readings
 
 # The ENS160's heater warms the shared sensor board, so the AHT21 reads high.
-# Measured 2026-10-06: station 25.1 C, multimeter 21.0 C.
-# Set to 0 to see the raw sensor values.
-TEMP_OFFSET_C = -4.1
+# Calibrated 2026-10-07 against a second AHT21 away from the board, averaged
+# over 5 minutes once both had settled: board 23.9 C / 47.3 %RH, reference
+# 21.1 C / 48.7 %RH. Set both to 0 to see the raw sensor values.
+TEMP_OFFSET_C = -2.9
+RH_OFFSET = 1.4             # percentage points
 
 I2C_SDA = 4                 # GP4 (pin 6)
 I2C_SCL = 5                 # GP5 (pin 7)
@@ -94,21 +95,13 @@ def setup_devices():
             print("ENS160 setup failed:", e)
 
 
-def saturation_pressure(temp_c):
-    """Max water vapour pressure (hPa) air can hold at temp_c (Magnus formula)."""
-    return 6.112 * math.exp(17.62 * temp_c / (243.12 + temp_c))
-
-
 def correct_temp_rh(temp_c, rh):
-    """Apply TEMP_OFFSET_C and recalculate humidity for the corrected temperature.
+    """Apply TEMP_OFFSET_C and RH_OFFSET.
 
-    The warm sensor sees the same amount of water in the air, but warmer air
-    can hold more, so its relative humidity reads too low. Convert back to the
-    room temperature, keeping the amount of water the same.
+    The humidity reading barely changes with the board's extra warmth, so it
+    gets a plain offset rather than being recalculated for the cooler room.
     """
-    room_c = temp_c + TEMP_OFFSET_C
-    room_rh = rh * saturation_pressure(temp_c) / saturation_pressure(room_c)
-    return room_c, min(room_rh, 100.0)
+    return temp_c + TEMP_OFFSET_C, max(0.0, min(rh + RH_OFFSET, 100.0))
 
 
 def read_sensors():
