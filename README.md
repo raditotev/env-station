@@ -2,6 +2,14 @@
 
 A Raspberry Pi Pico-compatible board that measures temperature, humidity and indoor air quality, and shows the results on a small OLED screen. It starts by itself as soon as it gets USB power. No computer is needed once the code is on the board.
 
+## The finished build
+
+<p>
+  <img src="images/station-side.jpg" alt="The station from the front, showing the OLED reading 24.5C, 33%RH and Good on all three air lines" width="32%">
+  <img src="images/station-top.jpg" alt="Top board from above: ENS160 + AHT21 sensor board at the back, OLED at the front" width="32%">
+  <img src="images/station-pico.jpg" alt="Lower board from above: the RP2040 board with its RGB LED and USB-C cable" width="32%">
+</p>
+
 ## Reading the screen
 
 ```
